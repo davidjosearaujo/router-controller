@@ -1,0 +1,30 @@
+POST http://192.168.1.1/api/user/authentication_login HTTP/1.1
+host: 192.168.1.1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Content-Type: application/x-www-form-urlencoded; charset=UTF-8
+_ResponseSource: Broswer
+__RequestVerificationToken: QcXJjdxblaLHFUoKsi05AfDBNuSspD2F
+X-Requested-With: XMLHttpRequest
+Content-Length: 269
+Origin: http://192.168.1.1
+Connection: keep-alive
+Referer: http://192.168.1.1/html/home.html
+Cookie: SessionID=EJNee7yMNRhSxjgKavklyLTjvEJmM5Tpz7015IeOXZgPa5zvF8HhoHuTHC80OAlzleZMSei3IKdpVH0EpxDI3Tq8RUPlvpVz3ja7UFPf5avvfn80PilzqwBIZWYPhsE5
+
+<?xml version="1.0" encoding="UTF-8"?><request><clientproof>1723683ff128b8070ba1ef071e63f763357320c424c74469d7f53bbd9fe9021e</clientproof><finalnonce>378b2138a6a6ea76cd566f655d771f184d27d5a33211dd4f4c0e1164c36c2516TziEvLZiZuYGv0shQphqC2rRK1ko2Gxv</finalnonce></request>
+
+HTTP/1.1 200 OK
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Content-Type: text/html
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-XSS-Protection: 1; mode=block
+Content-Security-Policy: default-src 'self' 'unsafe-inline' 'unsafe-eval'
+X-Content-Type-Options: nosniff
+__RequestVerificationToken: CSTj5Ba0PtM8cfTHlvFkQ83RsPWX1mlm
+Content-Length: 107
+
+<?xml version="1.0" encoding="UTF-8"?><error><message></message><count>1</count><code>108006</code></error>
