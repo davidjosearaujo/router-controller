@@ -19,33 +19,41 @@ import requests
 import dicttoxml
 import xml.etree.ElementTree as ET
 
-print("Huawei Router API Controller")
 
-username = "admin"
-password = "test1234"
-cookie = ""
+RSA_LOGIN_MODE      = 1
+ROUTER_IP           = "192.168.1.1"
+
+USERNAME            = "admin"
+PASSWORD            = "test1234"
+
+TOKEN               = None
+SESSION_ID          = None
+
+HEADER = {
+    "_ResponseSource": "Broswer",
+    "X-Requested-With": "XMLHttpRequest"
+}
 
 def _xml_to_dict(element):
     """Convert XML element to a dictionary."""
     return ET.fromstring(element)
 
 def _dict_to_xml(object):
-    xmlstr = '<?xml version="1.0" encoding="UTF-8"?>'
-    xmlstr += dicttoxml.dicttoxml(object, custom_root='request', xml_declaration=False, attr_type=False).decode('utf-8')
-    return xmlstr
+    return dicttoxml.dicttoxml(object, custom_root='request',attr_type=False).decode('utf-8')
 
 """
 Step 1: Request token
 """
-def request_token():
+def refresh_token():
     print("GETting token...")
 
-    url = "http://192.168.1.1/api/webserver/token"
+    url = f"http://{ROUTER_IP}/api/webserver/token"
 
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return _xml_to_dict(response.text)[0].text
+
+        return response.headers['Set-Cookie'].split(';')[0], _xml_to_dict(response.text)[0].text[32:]
     except requests.RequestException as e:
         print(f"Error requesting token: {e}")
         return None
@@ -53,16 +61,37 @@ def request_token():
 """
 Step 2: Send Challenge
 """
-def send_challenge(username):
+def send_challenge():
     print("POSTing challenge...")
+
+    url = f"http://{ROUTER_IP}/api/user/challenge_login"
+
     firstPostData = {
-        "username": username, 
-        "firstNonce": str(os.urandom(33).hex()[:65]),
-        "mode": 1
+        "username": USERNAME, 
+        "firstnonce": str(os.urandom(33).hex()[:64]),
+        "mode": RSA_LOGIN_MODE
     }
-    # TODO: Implement POST request to send challenge
-    return _dict_to_xml(firstPostData) 
+    
+    try:
+        response = requests.post(
+            url,
+            headers=HEADER,
+            data=_dict_to_xml(firstPostData)
+        )
+        response.raise_for_status()
+        return _xml_to_dict(response.text)
+    except requests.RequestException as e:
+        print(f"Error sending challenge: {e}")
+        return None
 
-print(request_token())
 
-print(send_challenge(username))
+if __name__ == "__main__":
+
+    print(f"""Huawei Router API Controller\nReaching router at {ROUTER_IP}\n""")
+
+    SESSION_ID, TOKEN = refresh_token()
+
+    HEADER["Cookie"] = SESSION_ID
+    HEADER["__RequestVerificationToken"] = TOKEN
+
+    print(send_challenge())
