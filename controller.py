@@ -254,7 +254,7 @@ def main():
     global ENCPUBKEY_E, ENCPUBKEY_N # Declare global to modify
     if server_signature_received == server_proof_calculated:
         public_key_signature_calculated = hmac.new(
-            msg=rsan.encode('utf-8'),
+            msg=bytes.fromhex(rsan),
             key=hmac.new(msg=b_salted_password, key=b"Server Key", digestmod=hashlib.sha256).digest(), # Re-calculate server_key
             digestmod=hashlib.sha256
         ).digest().hex()
