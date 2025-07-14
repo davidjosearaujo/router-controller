@@ -15,18 +15,24 @@
 # limitations under the License.
 
 import os
+import json
 import hmac
 import hashlib
+import string
 import requests
 import dicttoxml
 import xml.etree.ElementTree as ET
 
-
-RSA_LOGIN_MODE      = 1
 ROUTER_IP           = "192.168.1.1"
 
 USERNAME            = "admin"   # Change this to your router's username
 PASSWORD            = "1234"    # Change this to your router's password
+
+RSA_LOGIN_MODE      = 1
+
+REQUEST_TOKENS      = []
+ENCPUBKEY_E         = None
+ENCPUBKEY_N         = None
 
 HEADERS = {
     "_ResponseSource": "Broswer",
@@ -82,10 +88,15 @@ def send_challenge():
             headers=HEADERS,
             data=_dict_to_xml(firstPostData)
         )
+
         response_raw.raise_for_status()
-        print(f"Challenge response:\t{response_raw.text}\n")
-        HEADERS["__RequestVerificationToken"] = response_raw.headers['__RequestVerificationToken']
+        if "error" in response_raw.text:
+            print("[!!] Error in challenge response:", response_raw.text)
+            exit(1)
+
         response = _xml_to_dict(response_raw.text)["response"]
+        HEADERS["__RequestVerificationToken"] = response_raw.headers['__RequestVerificationToken']
+        
         print("[!] Challenge received successfully with salt, iterations, and server nonce")
         return response["salt"], response["iterations"], firstNonce, response["servernonce"], response["modeselected"]
     except requests.RequestException as e:
@@ -102,8 +113,19 @@ def send_response(responsePostData):
             headers=HEADERS,
             data=_dict_to_xml(responsePostData)
         )
+
         response_raw.raise_for_status()
+        if "error" in response_raw.text:
+            print("[!!] Error in authentication response:", response_raw.text)
+            exit(1)
+
         response = _xml_to_dict(response_raw.text)["response"]
+
+        REQUEST_TOKENS = response_raw.headers['__RequestVerificationToken'].split('#')
+        HEADERS["Cookie"] = response_raw.headers['Set-Cookie'].split(';')[0]
+        HEADERS["__RequestVerificationTokenone"] = response_raw.headers['__RequestVerificationTokenone']
+        HEADERS["__RequestVerificationTokentwo"] = response_raw.headers['__RequestVerificationTokentwo']
+
         print("[!] Response received successfully with rsan, rsae, serversignature and rsapubkeysignature")
         return response["rsan"], response["rsae"], response["serversignature"], response["rsapubkeysignature"]
     except requests.RequestException as e:
@@ -111,6 +133,16 @@ def send_response(responsePostData):
         return None
 
 if __name__ == "__main__":
+
+    if os.path.exists("credentials.json"):
+        with open("credentials.json", "r") as f:
+            credentials = json.load(f)
+            USERNAME = credentials.get("username", USERNAME)
+            PASSWORD = credentials.get("password", PASSWORD)
+            ROUTER_IP = credentials.get("router_ip", ROUTER_IP)
+    else:
+        print("[-] Credentials file not found. Please create 'credentials.json' with your router's credentials.")
+        exit(1)
 
     print(f"""Huawei Router API Controller\nReaching router at {ROUTER_IP}\n""")
 
@@ -144,13 +176,19 @@ if __name__ == "__main__":
     }
 
     rsan, rsae, serversignature, rsapubkeysignature = send_response(finalPostData)
+    
+    server_key = hmac.new(msg=b_saltedPassword, key="Server Key".encode('latin1'), digestmod=hashlib.sha256).digest()
 
     def server_proof() -> str:
         """Generate the server proof for the challenge-response authentication."""
-        server_key = hmac.new(msg=b_saltedPassword, key="Server Key".encode('latin1'), digestmod=hashlib.sha256).digest()
         server_signature = hmac.new(msg=server_key, key=authMsg.encode("utf-8"), digestmod=hashlib.sha256).digest()
         return server_signature.hex()
 
-    
-    
-    
+    if serversignature == server_proof():
+        publicKeySignature = hmac.new(msg=rsan.encode('utf-8'),key=server_key, digestmod=hashlib.sha256).digest().hex()
+        if rsapubkeysignature == publicKeySignature:
+            ENCPUBKEY_E = rsae
+            ENCPUBKEY_N = rsan
+            print("[!] Authentication successful!")
+            
+    print(requests.get("http://192.168.1.1/api/security/virtual-servers", headers=HEADERS).text)
