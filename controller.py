@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import os
+import hmac
+import hashlib
 import requests
 import dicttoxml
 import xml.etree.ElementTree as ET
@@ -23,75 +25,126 @@ import xml.etree.ElementTree as ET
 RSA_LOGIN_MODE      = 1
 ROUTER_IP           = "192.168.1.1"
 
-USERNAME            = "admin"
-PASSWORD            = "test1234"
+USERNAME            = "admin"   # Change this to your router's username
+PASSWORD            = "1234"    # Change this to your router's password
 
-TOKEN               = None
-SESSION_ID          = None
-
-HEADER = {
+HEADERS = {
     "_ResponseSource": "Broswer",
     "X-Requested-With": "XMLHttpRequest"
 }
 
-def _xml_to_dict(element):
-    """Convert XML element to a dictionary."""
-    return ET.fromstring(element)
+def _xml_to_dict(xml_string):
+    """Convert XML string to a nested dictionary."""
+    def recurse_xml_to_dict(element):
+        children = list(element)
+        if not children:
+            return element.text
+        result = {}
+        for child in children:
+            result[child.tag] = recurse_xml_to_dict(child)
+        return result
+
+    root = ET.fromstring(xml_string)
+    return {root.tag: recurse_xml_to_dict(root)}
 
 def _dict_to_xml(object):
+    """Convert nested dictionary to a XML string."""
     return dicttoxml.dicttoxml(object, custom_root='request',attr_type=False).decode('utf-8')
 
-"""
-Step 1: Request token
-"""
 def refresh_token():
-    print("GETting token...")
+    print("GETting token...\n")
 
     url = f"http://{ROUTER_IP}/api/webserver/token"
 
     try:
-        response = requests.get(url)
-        response.raise_for_status()
+        response_raw = requests.get(url)
+        response_raw.raise_for_status()
 
-        return response.headers['Set-Cookie'].split(';')[0], _xml_to_dict(response.text)[0].text[32:]
+        return response_raw.headers['Set-Cookie'].split(';')[0], _xml_to_dict(response_raw.text)['response']['token'][32:]
     except requests.RequestException as e:
         print(f"Error requesting token: {e}")
         return None
 
-"""
-Step 2: Send Challenge
-"""
 def send_challenge():
-    print("POSTing challenge...")
-
     url = f"http://{ROUTER_IP}/api/user/challenge_login"
+
+    firstNonce = str(os.urandom(33).hex()[:64])
 
     firstPostData = {
         "username": USERNAME, 
-        "firstnonce": str(os.urandom(33).hex()[:64]),
+        "firstnonce": firstNonce,
         "mode": RSA_LOGIN_MODE
     }
     
+    print(f"POST Challenge:\t\t{_dict_to_xml(firstPostData)}")
+
     try:
-        response = requests.post(
+        response_raw = requests.post(
             url,
-            headers=HEADER,
+            headers=HEADERS,
             data=_dict_to_xml(firstPostData)
         )
-        response.raise_for_status()
-        return _xml_to_dict(response.text)
+        response_raw.raise_for_status()
+        print(f"Challenge response:\t{response_raw.text}\n")
+        HEADERS["__RequestVerificationToken"] = response_raw.headers['__RequestVerificationToken']
+        response = _xml_to_dict(response_raw.text)["response"]
+        return response["salt"], response["iterations"], firstNonce, response["servernonce"], response["modeselected"]
     except requests.RequestException as e:
         print(f"Error sending challenge: {e}")
         return None
 
+def send_response(responsePostData):
+    url = f"http://{ROUTER_IP}/api/user/authentication_login"
+
+    print(f"POST Result:\t\t{_dict_to_xml(responsePostData)}")
+
+    try:
+        response_raw = requests.post(
+            url,
+            headers=HEADERS,
+            data=_dict_to_xml(responsePostData)
+        )
+        response_raw.raise_for_status()
+        print(f"Result response:\t{response_raw.text}")
+        # TODO: Implement response parsing
+    except requests.RequestException as e:
+        print(f"Error sending response: {e}")
+        return None
 
 if __name__ == "__main__":
 
     print(f"""Huawei Router API Controller\nReaching router at {ROUTER_IP}\n""")
 
-    SESSION_ID, TOKEN = refresh_token()
+    HEADERS["Cookie"], HEADERS["__RequestVerificationToken"] = refresh_token()
 
-    HEADER["Cookie"] = SESSION_ID
-    HEADER["__RequestVerificationToken"] = TOKEN
+    salt, iter, firstNonce, finalNonce, modeSelected = send_challenge()
 
-    print(send_challenge())
+    b_salt = bytes.fromhex(salt)
+    authMsg = f"{firstNonce},{finalNonce},{finalNonce}"
+    b_saltedPassword = hashlib.pbkdf2_hmac(
+        hash_name='sha256',
+        password=PASSWORD.encode('utf-8'),
+        salt=b_salt,
+        iterations=int(iter),
+        dklen=32 
+    )
+
+    def client_proof() -> str:
+        """Generate the client proof for the challenge-response authentication."""
+        client_key = hmac.new(msg=b_saltedPassword, key="Client Key".encode('latin1'), digestmod=hashlib.sha256).digest()
+        stored_key = hashlib.sha256(client_key).digest()
+        client_signature = hmac.new(msg=stored_key, key=authMsg.encode("utf-8"), digestmod=hashlib.sha256).digest()
+        proof = bytes(x ^ y for x, y in zip(client_key, client_signature))
+
+        return proof.hex()    
+    
+
+    finalPostData = {
+       "clientproof": client_proof(),
+       "finalnonce": finalNonce,
+    }
+
+    send_response(finalPostData)
+
+    
+    serverKey = str(hmac.new(b_saltedPassword, "Server Key".encode('utf-8'), hashlib.sha256).digest())
