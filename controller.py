@@ -52,18 +52,17 @@ def _dict_to_xml(object):
     return dicttoxml.dicttoxml(object, custom_root='request',attr_type=False).decode('utf-8')
 
 def refresh_token():
-    print("GETting token...\n")
-
     url = f"http://{ROUTER_IP}/api/webserver/token"
 
-    try:
-        response_raw = requests.get(url)
-        response_raw.raise_for_status()
-
-        return response_raw.headers['Set-Cookie'].split(';')[0], _xml_to_dict(response_raw.text)['response']['token'][32:]
-    except requests.RequestException as e:
-        print(f"Error requesting token: {e}")
-        return None
+    while True:
+        try:
+            print("[+] Getting token...")
+            response_raw = requests.get(url)
+            response_raw.raise_for_status()
+            print("[!] Token received successfully")
+            return response_raw.headers['Set-Cookie'].split(';')[0], _xml_to_dict(response_raw.text)['response']['token'][32:]
+        except requests.RequestException as e:
+            print(f"Error requesting token: {e}")
 
 def send_challenge():
     url = f"http://{ROUTER_IP}/api/user/challenge_login"
@@ -76,9 +75,8 @@ def send_challenge():
         "mode": RSA_LOGIN_MODE
     }
     
-    print(f"POST Challenge:\t\t{_dict_to_xml(firstPostData)}")
-
     try:
+        print("[+] Sending challenge")
         response_raw = requests.post(
             url,
             headers=HEADERS,
@@ -88,6 +86,7 @@ def send_challenge():
         print(f"Challenge response:\t{response_raw.text}\n")
         HEADERS["__RequestVerificationToken"] = response_raw.headers['__RequestVerificationToken']
         response = _xml_to_dict(response_raw.text)["response"]
+        print("[!] Challenge received successfully with salt, iterations, and server nonce")
         return response["salt"], response["iterations"], firstNonce, response["servernonce"], response["modeselected"]
     except requests.RequestException as e:
         print(f"Error sending challenge: {e}")
@@ -96,17 +95,17 @@ def send_challenge():
 def send_response(responsePostData):
     url = f"http://{ROUTER_IP}/api/user/authentication_login"
 
-    print(f"POST Result:\t\t{_dict_to_xml(responsePostData)}")
-
     try:
+        print("[+] Sending response")
         response_raw = requests.post(
             url,
             headers=HEADERS,
             data=_dict_to_xml(responsePostData)
         )
         response_raw.raise_for_status()
-        print(f"Result response:\t{response_raw.text}")
-        # TODO: Implement response parsing
+        response = _xml_to_dict(response_raw.text)["response"]
+        print("[!] Response received successfully with rsan, rsae, serversignature and rsapubkeysignature")
+        return response["rsan"], response["rsae"], response["serversignature"], response["rsapubkeysignature"]
     except requests.RequestException as e:
         print(f"Error sending response: {e}")
         return None
@@ -144,7 +143,14 @@ if __name__ == "__main__":
        "finalnonce": finalNonce,
     }
 
-    send_response(finalPostData)
+    rsan, rsae, serversignature, rsapubkeysignature = send_response(finalPostData)
+
+    def server_proof() -> str:
+        """Generate the server proof for the challenge-response authentication."""
+        server_key = hmac.new(msg=b_saltedPassword, key="Server Key".encode('latin1'), digestmod=hashlib.sha256).digest()
+        server_signature = hmac.new(msg=server_key, key=authMsg.encode("utf-8"), digestmod=hashlib.sha256).digest()
+        return server_signature.hex()
 
     
-    serverKey = str(hmac.new(b_saltedPassword, "Server Key".encode('utf-8'), hashlib.sha256).digest())
+    
+    
