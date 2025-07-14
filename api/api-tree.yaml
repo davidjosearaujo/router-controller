@@ -1,0 +1,600 @@
+- node: Sites
+  children:
+  - node: http://192.168.1.1
+    url: http://192.168.1.1
+    method: GET
+    children:
+    - node: GET:/
+      url: http://192.168.1.1/html/index.html
+      method: GET
+      responseLength: 9826
+      statusCode: 200
+    - node: api
+      url: http://192.168.1.1/api
+      method: GET
+      children:
+      - node: app
+        url: http://192.168.1.1/api/app
+        method: GET
+        children:
+        - node: POST:privacynoticeinfo()(<?xml version)
+          url: http://192.168.1.1/api/app/privacynoticeinfo
+          method: POST
+          responseLength: 597
+          statusCode: 200
+          data: '%3C%3Fxml+version='
+      - node: bluetooth
+        url: http://192.168.1.1/api/bluetooth
+        method: GET
+        children:
+        - node: GET:feature-switch
+          url: http://192.168.1.1/api/bluetooth/feature-switch
+          method: GET
+          responseLength: 487
+          statusCode: 200
+      - node: cradle
+        url: http://192.168.1.1/api/cradle
+        method: GET
+        children:
+        - node: GET:feature-switch
+          url: http://192.168.1.1/api/cradle/feature-switch
+          method: GET
+          responseLength: 610
+          statusCode: 200
+        - node: GET:status-info
+          url: http://192.168.1.1/api/cradle/status-info
+          method: GET
+          responseLength: 830
+          statusCode: 200
+      - node: device
+        url: http://192.168.1.1/api/device
+        method: GET
+        children:
+        - node: GET:autorun-version
+          url: http://192.168.1.1/api/device/autorun-version
+          method: GET
+          responseLength: 471
+          statusCode: 200
+        - node: GET:basic_information
+          url: http://192.168.1.1/api/device/basic_information
+          method: GET
+          responseLength: 755
+          statusCode: 200
+        - node: GET:device-feature-switch
+          url: http://192.168.1.1/api/device/device-feature-switch
+          method: GET
+          responseLength: 521
+          statusCode: 200
+        - node: GET:information
+          url: http://192.168.1.1/api/device/information
+          method: GET
+          responseLength: 1206
+          statusCode: 200
+        - node: GET:usb-tethering-switch
+          url: http://192.168.1.1/api/device/usb-tethering-switch
+          method: GET
+          responseLength: 368
+          statusCode: 200
+      - node: dhcp
+        url: http://192.168.1.1/api/dhcp
+        method: GET
+        children:
+        - node: GET:feature-switch
+          url: http://192.168.1.1/api/dhcp/feature-switch
+          method: GET
+          responseLength: 582
+          statusCode: 200
+        - node: GET:settings
+          url: http://192.168.1.1/api/dhcp/settings
+          method: GET
+          responseLength: 874
+          statusCode: 200
+        - node: GET:static-addr-info
+          url: http://192.168.1.1/api/dhcp/static-addr-info
+          method: GET
+          responseLength: 502
+          statusCode: 200
+      - node: dialup
+        url: http://192.168.1.1/api/dialup
+        method: GET
+        children:
+        - node: GET:dialup-feature-switch
+          url: http://192.168.1.1/api/dialup/dialup-feature-switch
+          method: GET
+          responseLength: 731
+          statusCode: 200
+        - node: GET:mobile-dataswitch
+          url: http://192.168.1.1/api/dialup/mobile-dataswitch
+          method: GET
+          responseLength: 454
+          statusCode: 200
+      - node: global
+        url: http://192.168.1.1/api/global
+        method: GET
+        children:
+        - node: GET:module-switch
+          url: http://192.168.1.1/api/global/module-switch
+          method: GET
+          responseLength: 2370
+          statusCode: 200
+      - node: host
+        url: http://192.168.1.1/api/host
+        method: GET
+        children:
+        - node: POST:info()(<?xml version)
+          url: http://192.168.1.1/api/host/info
+          method: POST
+          responseLength: 496
+          statusCode: 200
+          data: '%3C%3Fxml+version='
+      - node: monitoring
+        url: http://192.168.1.1/api/monitoring
+        method: GET
+        children:
+        - node: GET:check-notifications
+          url: http://192.168.1.1/api/monitoring/check-notifications
+          method: GET
+          responseLength: 550
+          statusCode: 200
+        - node: GET:converged-status
+          url: http://192.168.1.1/api/monitoring/converged-status
+          method: GET
+          responseLength: 537
+          statusCode: 200
+        - node: GET:month_statistics
+          url: http://192.168.1.1/api/monitoring/month_statistics
+          method: GET
+          responseLength: 632
+          statusCode: 200
+        - node: GET:start_date
+          url: http://192.168.1.1/api/monitoring/start_date
+          method: GET
+          responseLength: 740
+          statusCode: 200
+        - node: GET:status
+          url: http://192.168.1.1/api/monitoring/status
+          method: GET
+          responseLength: 1450
+          statusCode: 200
+        - node: GET:traffic-statistics
+          url: http://192.168.1.1/api/monitoring/traffic-statistics
+          method: GET
+          responseLength: 824
+          statusCode: 200
+      - node: net
+        url: http://192.168.1.1/api/net
+        method: GET
+        children:
+        - node: GET:current-plmn
+          url: http://192.168.1.1/api/net/current-plmn
+          method: GET
+          responseLength: 557
+          statusCode: 200
+      - node: online-update
+        url: http://192.168.1.1/api/online-update
+        method: GET
+        children:
+        - node: GET:autoupdate-config
+          url: http://192.168.1.1/api/online-update/autoupdate-config
+          method: GET
+          responseLength: 495
+          statusCode: 200
+        - node: GET:configuration
+          url: http://192.168.1.1/api/online-update/configuration
+          method: GET
+          responseLength: 605
+          statusCode: 200
+        - node: GET:status
+          url: http://192.168.1.1/api/online-update/status
+          method: GET
+          responseLength: 724
+          statusCode: 200
+      - node: pin
+        url: http://192.168.1.1/api/pin
+        method: GET
+        children:
+        - node: GET:simlock
+          url: http://192.168.1.1/api/pin/simlock
+          method: GET
+          responseLength: 586
+          statusCode: 200
+        - node: GET:status
+          url: http://192.168.1.1/api/pin/status
+          method: GET
+          responseLength: 614
+          statusCode: 200
+      - node: redirection
+        url: http://192.168.1.1/api/redirection
+        method: GET
+        children:
+        - node: GET:homepage
+          url: http://192.168.1.1/api/redirection/homepage
+          method: GET
+          responseLength: 500
+          statusCode: 200
+      - node: security
+        url: http://192.168.1.1/api/security
+        method: GET
+        children:
+        - node: GET:bridgemode
+          url: http://192.168.1.1/api/security/bridgemode
+          method: GET
+          responseLength: 519
+          statusCode: 200
+        - node: GET:virtual-servers
+          url: http://192.168.1.1/api/security/virtual-servers
+          method: GET
+          responseLength: 1248
+          statusCode: 200
+        - node: POST:virtual-servers()(<?xml version)
+          url: http://192.168.1.1/api/security/virtual-servers
+          method: POST
+          responseLength: 468
+          statusCode: 200
+          data: '%3C%3Fxml+version='
+      - node: time
+        url: http://192.168.1.1/api/time
+        method: GET
+        children:
+        - node: GET:timeout
+          url: http://192.168.1.1/api/time/timeout
+          method: GET
+          responseLength: 507
+          statusCode: 200
+      - node: user
+        url: http://192.168.1.1/api/user
+        method: GET
+        children:
+        - node: POST:authentication_login()(<?xml version)
+          url: http://192.168.1.1/api/user/authentication_login
+          method: POST
+          responseLength: 2539
+          statusCode: 200
+          data: '%3C%3Fxml+version='
+        - node: POST:challenge_login()(<?xml version)
+          url: http://192.168.1.1/api/user/challenge_login
+          method: POST
+          responseLength: 745
+          statusCode: 200
+          data: '%3C%3Fxml+version='
+        - node: GET:history-login
+          url: http://192.168.1.1/api/user/history-login
+          method: GET
+          responseLength: 632
+          statusCode: 200
+        - node: GET:remind
+          url: http://192.168.1.1/api/user/remind
+          method: GET
+          responseLength: 548
+          statusCode: 200
+        - node: GET:state-login
+          url: http://192.168.1.1/api/user/state-login
+          method: GET
+          responseLength: 748
+          statusCode: 200
+        - node: GET:web-feature-switch
+          url: http://192.168.1.1/api/user/web-feature-switch
+          method: GET
+          responseLength: 598
+          statusCode: 200
+      - node: webserver
+        url: http://192.168.1.1/api/webserver
+        method: GET
+        children:
+        - node: GET:publickey
+          url: http://192.168.1.1/api/webserver/publickey
+          method: GET
+          responseLength: 1056
+          statusCode: 200
+        - node: GET:token
+          url: http://192.168.1.1/api/webserver/token
+          method: GET
+          responseLength: 567
+          statusCode: 200
+      - node: wlan
+        url: http://192.168.1.1/api/wlan
+        method: GET
+        children:
+        - node: GET:wifi-feature-switch
+          url: http://192.168.1.1/api/wlan/wifi-feature-switch
+          method: GET
+          responseLength: 1428
+          statusCode: 200
+    - node: config
+      url: http://192.168.1.1/config
+      method: GET
+      children:
+      - node: deviceinformation
+        url: http://192.168.1.1/config/deviceinformation
+        method: GET
+        children:
+        - node: GET:config.xml
+          url: http://192.168.1.1/config/deviceinformation/config.xml
+          method: GET
+          responseLength: 1395
+          statusCode: 200
+      - node: global
+        url: http://192.168.1.1/config/global
+        method: GET
+        children:
+        - node: GET:config.xml
+          url: http://192.168.1.1/config/global/config.xml
+          method: GET
+          responseLength: 5320
+          statusCode: 200
+        - node: GET:languagelist.xml
+          url: http://192.168.1.1/config/global/languagelist.xml
+          method: GET
+          responseLength: 5053
+          statusCode: 200
+        - node: GET:net-type.xml
+          url: http://192.168.1.1/config/global/net-type.xml
+          method: GET
+          responseLength: 3455
+          statusCode: 200
+      - node: lan
+        url: http://192.168.1.1/config/lan
+        method: GET
+        children:
+        - node: GET:config.xml
+          url: http://192.168.1.1/config/lan/config.xml
+          method: GET
+          responseLength: 1484
+          statusCode: 200
+      - node: pcassistant
+        url: http://192.168.1.1/config/pcassistant
+        method: GET
+        children:
+        - node: GET:config.xml
+          url: http://192.168.1.1/config/pcassistant/config.xml
+          method: GET
+          responseLength: 576
+          statusCode: 200
+      - node: webuicfg
+        url: http://192.168.1.1/config/webuicfg
+        method: GET
+        children:
+        - node: GET:config.xml
+          url: http://192.168.1.1/config/webuicfg/config.xml
+          method: GET
+          responseLength: 1043
+          statusCode: 200
+    - node: css
+      url: http://192.168.1.1/css
+      method: GET
+      children:
+      - node: GET:main.css
+        url: http://192.168.1.1/css/main.css
+        method: GET
+        responseLength: 123858
+        statusCode: 200
+    - node: GET:favicon.ico
+      url: http://192.168.1.1/favicon.ico
+      method: GET
+      responseLength: 10733
+      statusCode: 200
+    - node: html
+      url: http://192.168.1.1/html
+      method: GET
+      children:
+      - node: GET:dhcp.html
+        url: http://192.168.1.1/html/dhcp.html
+        method: GET
+        responseLength: 5066
+        statusCode: 200
+      - node: GET:footer.html
+        url: http://192.168.1.1/html/footer.html
+        method: GET
+        responseLength: 546
+        statusCode: 200
+      - node: GET:header.html
+        url: http://192.168.1.1/html/header.html
+        method: GET
+        responseLength: 2734
+        statusCode: 200
+      - node: GET:home.html
+        url: http://192.168.1.1/html/home.html
+        method: GET
+        responseLength: 9113
+        statusCode: 200
+      - node: GET:index.html
+        url: http://192.168.1.1/html/index.html
+        method: GET
+        responseLength: 9997
+        statusCode: 200
+      - node: GET:leftmenu.html
+        url: http://192.168.1.1/html/leftmenu.html
+        method: GET
+        responseLength: 15321
+        statusCode: 200
+      - node: GET:update.html
+        url: http://192.168.1.1/html/update.html
+        method: GET
+        responseLength: 7254
+        statusCode: 200
+      - node: GET:virtualserver.html
+        url: http://192.168.1.1/html/virtualserver.html
+        method: GET
+        responseLength: 4696
+        statusCode: 200
+    - node: js
+      url: http://192.168.1.1/js
+      method: GET
+      children:
+      - node: GET:changelang.js
+        url: http://192.168.1.1/js/changelang.js
+        method: GET
+        responseLength: 1325
+        statusCode: 200
+      - node: GET:checklogin.js
+        url: http://192.168.1.1/js/checklogin.js
+        method: GET
+        responseLength: 1453
+        statusCode: 200
+      - node: GET:dhcp.js
+        url: http://192.168.1.1/js/dhcp.js
+        method: GET
+        responseLength: 38620
+        statusCode: 200
+      - node: GET:format.js
+        url: http://192.168.1.1/js/format.js
+        method: GET
+        responseLength: 5127
+        statusCode: 200
+      - node: GET:home.js
+        url: http://192.168.1.1/js/home.js
+        method: GET
+        responseLength: 77489
+        statusCode: 200
+      - node: GET:main.js
+        url: http://192.168.1.1/js/main.js
+        method: GET
+        responseLength: 244914
+        statusCode: 200
+      - node: GET:ping.js
+        url: http://192.168.1.1/js/ping.js
+        method: GET
+        responseLength: 1302
+        statusCode: 200
+      - node: GET:redirect.js
+        url: http://192.168.1.1/js/redirect.js
+        method: GET
+        responseLength: 6564
+        statusCode: 200
+      - node: GET:table.js
+        url: http://192.168.1.1/js/table.js
+        method: GET
+        responseLength: 4247
+        statusCode: 200
+      - node: GET:update.js
+        url: http://192.168.1.1/js/update.js
+        method: GET
+        responseLength: 27678
+        statusCode: 200
+      - node: GET:validation.js
+        url: http://192.168.1.1/js/validation.js
+        method: GET
+        responseLength: 33193
+        statusCode: 200
+      - node: GET:virtualserver.js
+        url: http://192.168.1.1/js/virtualserver.js
+        method: GET
+        responseLength: 16868
+        statusCode: 200
+    - node: language
+      url: http://192.168.1.1/language
+      method: GET
+      children:
+      - node: GET:lang_en_us.js(_)
+        url: http://192.168.1.1/language/lang_en_us.js?_=1752529275503
+        method: GET
+        responseLength: 139932
+        statusCode: 200
+    - node: lib
+      url: http://192.168.1.1/lib
+      method: GET
+      children:
+      - node: GET:jquery-1.7.2.min.js
+        url: http://192.168.1.1/lib/jquery-1.7.2.min.js
+        method: GET
+        responseLength: 95284
+        statusCode: 200
+      - node: GET:jquery.form.js
+        url: http://192.168.1.1/lib/jquery.form.js
+        method: GET
+        responseLength: 44336
+        statusCode: 200
+      - node: GET:libjquery.js
+        url: http://192.168.1.1/lib/libjquery.js
+        method: GET
+        responseLength: 266266
+        statusCode: 200
+    - node: res
+      url: http://192.168.1.1/res
+      method: GET
+      children:
+      - node: GET:Tab_button_down.gif
+        url: http://192.168.1.1/res/Tab_button_down.gif
+        method: GET
+        responseLength: 2050
+        statusCode: 200
+      - node: GET:Tab_button_off.gif
+        url: http://192.168.1.1/res/Tab_button_off.gif
+        method: GET
+        responseLength: 15096
+        statusCode: 200
+      - node: GET:Tab_button_on.gif
+        url: http://192.168.1.1/res/Tab_button_on.gif
+        method: GET
+        responseLength: 15121
+        statusCode: 200
+      - node: GET:body_bg.gif
+        url: http://192.168.1.1/res/body_bg.gif
+        method: GET
+        responseLength: 2794
+        statusCode: 200
+      - node: GET:euap-icon.png
+        url: http://192.168.1.1/res/euap-icon.png
+        method: GET
+        responseLength: 123156
+        statusCode: 200
+      - node: GET:euap-icon2.png
+        url: http://192.168.1.1/res/euap-icon2.png
+        method: GET
+        responseLength: 61318
+        statusCode: 200
+      - node: GET:header_bg.png
+        url: http://192.168.1.1/res/header_bg.png
+        method: GET
+        responseLength: 6195
+        statusCode: 200
+      - node: GET:icon_01.gif
+        url: http://192.168.1.1/res/icon_01.gif
+        method: GET
+        responseLength: 1525
+        statusCode: 200
+      - node: GET:login_bg.png
+        url: http://192.168.1.1/res/login_bg.png
+        method: GET
+        responseLength: 9542
+        statusCode: 200
+      - node: GET:login_menu_bg.png
+        url: http://192.168.1.1/res/login_menu_bg.png
+        method: GET
+        responseLength: 4318
+        statusCode: 200
+      - node: GET:main_bg.gif
+        url: http://192.168.1.1/res/main_bg.gif
+        method: GET
+        responseLength: 192823
+        statusCode: 200
+      - node: GET:menu_bg.gif
+        url: http://192.168.1.1/res/menu_bg.gif
+        method: GET
+        responseLength: 20977
+        statusCode: 200
+      - node: GET:persent_download.jpg
+        url: http://192.168.1.1/res/persent_download.jpg
+        method: GET
+        responseLength: 1600
+        statusCode: 200
+      - node: GET:sms_menu.gif
+        url: http://192.168.1.1/res/sms_menu.gif
+        method: GET
+        responseLength: 3911
+        statusCode: 200
+      - node: GET:split_line.gif
+        url: http://192.168.1.1/res/split_line.gif
+        method: GET
+        responseLength: 1531
+        statusCode: 200
+      - node: GET:update_disable.gif
+        url: http://192.168.1.1/res/update_disable.gif
+        method: GET
+        responseLength: 13734
+        statusCode: 200
+      - node: GET:waiting.gif
+        url: http://192.168.1.1/res/waiting.gif
+        method: GET
+        responseLength: 2618
+        statusCode: 200
