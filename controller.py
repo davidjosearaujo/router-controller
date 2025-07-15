@@ -344,8 +344,6 @@ def add_port_forwarding_rule(
         del existing_rules_data["virtualserverexcludeports"]
         payload = _dict_to_xml(existing_rules_data).replace("<item>", "").replace("</item>", "")
 
-        payload = """<?xml version="1.0" encoding="UTF-8"?><request><Servers><Server><VirtualServerIPName>wireguard</VirtualServerIPName><VirtualServerStatus>1</VirtualServerStatus><VirtualServerRemoteIP></VirtualServerRemoteIP><VirtualServerWanPort>51820</VirtualServerWanPort><VirtualServerWanEndPort>51820</VirtualServerWanEndPort><VirtualServerLanPort>51820</VirtualServerLanPort><VirtualServerLanEndPort>51820</VirtualServerLanEndPort><VirtualServerIPAddress>192.168.1.2</VirtualServerIPAddress><VirtualServerProtocol>17</VirtualServerProtocol></Server></Servers></request>"""
-
         response_data = _post_request(url, payload)
         
         print("[+] Port forwarding rule added successfully.")
