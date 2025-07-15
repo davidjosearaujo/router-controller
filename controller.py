@@ -40,7 +40,6 @@ ENCPUBKEY_N = None
 
 HEADERS = {
     "_ResponseSource": "Broswer",
-    "X-Requested-With": "XMLHttpRequest"
 }
 
 # --- Utility Functions ---
@@ -102,12 +101,24 @@ def _post_request(url: str, data: dict) -> dict | None:
             print("[!!] Error in authentication response:", response.text)
             return None
 
-        if len(REQUEST_TOKENS) == 0 and response.headers.get('__RequestVerificationToken'):
-            if response.headers.get('__RequestVerificationTokenone', None):
-                REQUEST_TOKENS.append(response.headers.get('__RequestVerificationTokenone'))
-            if response.headers.get('__RequestVerificationTokentwo', None):
-                REQUEST_TOKENS.append(response.headers.get('__RequestVerificationTokentwo'))
-            REQUEST_TOKENS += response.headers.get('__RequestVerificationToken').split("#")
+        def _get_token_from_header(headers_obj, header_name):
+            token_value = headers_obj.get(header_name)
+            if token_value:
+                return token_value.lstrip()[:32]
+            return None
+
+        token_one = _get_token_from_header(response.headers, '__RequestVerificationTokenone')
+        if token_one:
+            REQUEST_TOKENS.append(token_one)
+            token_two = _get_token_from_header(response.headers, '__RequestVerificationTokentwo')
+            if token_two:
+                REQUEST_TOKENS.append(token_two)
+        else:
+            # Fallback to the single token scheme if 'one' is not found
+            single_token = _get_token_from_header(response.headers, '__RequestVerificationToken')
+            if single_token:
+                REQUEST_TOKENS.append(single_token)
+        del HEADERS['__RequestVerificationToken']
 
         if response.headers.get('Set-Cookie'):
             HEADERS["Cookie"] = response.headers.get('Set-Cookie').split(';')[0]
@@ -124,6 +135,8 @@ def refresh_token() -> bool:
     Fetches a new token and updates the Cookie and __RequestVerificationToken headers.
     Returns (cookie, request_verification_token) on success, None on failure.
     """
+    global REQUEST_TOKENS, HEADERS
+
     url = f"http://{ROUTER_IP}/api/webserver/token"
     try:
         print("[+] Getting token...")
@@ -278,6 +291,7 @@ def login():
         if rsa_pubkey_signature_received == public_key_signature_calculated:
             ENCPUBKEY_E = rsae
             ENCPUBKEY_N = rsan
+
             print("[+] Authentication successful!")
         else:
             print("[!!] RSA Public Key Signature mismatch. Authentication failed.")
@@ -359,6 +373,7 @@ if __name__ == "__main__":
         print("[!!] Login failed. Retrying...")
         retries += 1
 
+    # Still not working. It is authenticated but submitting a new rules cleans all the rules.
     add_port_forwarding_rule(
         rule_name="wireguard",
         external_port=51821,
