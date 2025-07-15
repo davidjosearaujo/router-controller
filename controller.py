@@ -18,7 +18,6 @@ import os
 import json
 import hmac
 import hashlib
-import string
 import requests
 import dicttoxml
 import xml.etree.ElementTree as ET
@@ -28,6 +27,11 @@ ROUTER_IP = "192.168.1.1"
 USERNAME = "admin"  # Change this to your router's username
 PASSWORD = "1234"   # Change this to your router's password
 RSA_LOGIN_MODE = 1
+
+# ---- Protocol Constants --- DON'T CHANGE THESE UNLESS YOU KNOW WHAT YOU'RE DOING!
+TCP = "6"   
+UDP = "17"
+TCP_UDP = "0"
 
 # --- Global Variables (will be updated during execution) ---
 REQUEST_TOKENS = []
@@ -202,7 +206,7 @@ def load_credentials() -> bool:
         print("[-] Credentials file not found. Please create 'credentials.json' with your router's credentials.")
         return False
 
-def main():
+def login():
     """Main function to orchestrate the router authentication process."""
     if not load_credentials():
         exit(1)
@@ -265,17 +269,77 @@ def main():
             print("[!] Authentication successful!")
         else:
             print("[!!] RSA Public Key Signature mismatch. Authentication failed.")
+            exit(1)
     else:
         print("[!!] Server Proof mismatch. Authentication failed.")
+        exit(1)
+
+def add_port_forwarding_rule(
+    rule_name: str,
+    external_port: int,
+    internal_port: int,
+    protocol: str,
+    internal_ip: str,
+    status: bool,
+    external_port_range: int | None,
+    internal_port_range: int | None
+) -> bool:
     
-    # Example: Fetching virtual servers after successful authentication
+    url = f"http://{ROUTER_IP}/api/security/virtual-servers"
+
     try:
-        virtual_servers_response = requests.get(f"http://{ROUTER_IP}/api/security/virtual-servers", headers=HEADERS)
-        virtual_servers_response.raise_for_status()
-        print("\n--- Port Forwarding Data ---")
-        print(_xml_to_dict(virtual_servers_response.text))
+        existing_rules = requests.get(
+            url,
+            headers=HEADERS
+        )
+        existing_rules.raise_for_status()
+        existing_rules_data = _xml_to_dict(existing_rules.text)
+
+        for server in existing_rules_data["Servers"]:
+            if (int(server["Server"]["VirtualServerLanPort"]) <= internal_port <= int(server["Server"]["VirtualServerLanEndPort"])) or (int(server["Server"]["VirtualServerWanPort"]) <= external_port <= int(server["Server"]["VirtualServerWanEndPort"])):
+                print(f"[!] Ports already in use. Please choose different ports.")
+                return False
+
+        existing_rules_data["Servers"].append({
+            "Server":{
+                "VirtualServerIPName": rule_name,
+                "VirtualServerStatus": int(status),
+                "VirtualServerRemoteIP": "",
+                "VirtualServerWanPort": str(external_port),
+                "VirtualServerWanEndPort": str(external_port_range) if external_port_range else str(external_port),
+                "VirtualServerLanPort": str(internal_port),
+                "VirtualServerLanEndPort": str(internal_port_range) if internal_port_range else str(internal_port),
+                "VirtualServerIPAddress": internal_ip,
+                "VirtualServerProtocol": protocol,
+            }
+        })
+
+        response_raw = requests.post(
+            url,
+            headers=HEADERS,
+            data=_dict_to_xml(existing_rules_data)
+        )
+        response_raw.raise_for_status()
+
+        if "OK" not in response_raw.text:
+            print("[!!] Error adding port forwarding rule:", response_raw.text)
+            return False
+        
+        print("[!] Port forwarding rule added successfully.")
     except requests.RequestException as e:
-        print(f"Error fetching virtual servers: {e}")
+        print(f"[!!] Error adding port forwarding rule: {e}")
+        return False
+
+    return True
 
 if __name__ == "__main__":
-    main()
+    login()
+
+    add_port_forwarding_rule(
+        rule_name="wireguard",
+        external_port=51820,
+        internal_port=51820,
+        protocol=TCP_UDP,
+        internal_ip="192.168.1.2",
+        status=True,
+    )
