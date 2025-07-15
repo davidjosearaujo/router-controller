@@ -23,9 +23,9 @@ import dicttoxml
 import xml.etree.ElementTree as ET
 
 # --- Configuration Constants ---
-ROUTER_IP = "192.168.1.1"
-USERNAME = "admin"  # Change this to your router's username
-PASSWORD = "1234"   # Change this to your router's password
+ROUTER_IP = ""
+USERNAME = ""  # Change this to your router's username
+PASSWORD = ""   # Change this to your router's password
 RSA_LOGIN_MODE = 1
 
 # ---- Protocol Constants --- DON'T CHANGE THESE UNLESS YOU KNOW WHAT YOU'RE DOING!
@@ -47,28 +47,79 @@ HEADERS = {
 
 def _xml_to_dict(xml_string: str) -> dict:
     """
-    Convert XML string to a nested dictionary, removing the root element.
-    Assumes the root element is always 'response' or similar and can be safely stripped.
+    Convert XML string to a nested dictionary, handling repeated tags as lists.
     """
     def recurse_xml_to_dict(element):
         children = list(element)
         if not children:
             return element.text
+
         result = {}
         for child in children:
-            result[child.tag] = recurse_xml_to_dict(child)
+            child_result = recurse_xml_to_dict(child)
+
+            # Check if the tag is already in the result
+            if child.tag in result:
+                # If already a list, append to it; otherwise, create a list
+                if isinstance(result[child.tag], list):
+                    result[child.tag].append(child_result)
+                else:
+                    result[child.tag] = [result[child.tag], child_result]
+            else:
+                result[child.tag] = child_result
+
         return result
 
+    # Parse XML string
     root = ET.fromstring(xml_string)
-    return recurse_xml_to_dict(root) # Modified to return the inner object directly
+    root_dict = recurse_xml_to_dict(root)
+
+    return root_dict
 
 def _dict_to_xml(data: dict) -> str:
     """Convert nested dictionary to an XML string."""
     return dicttoxml.dicttoxml(data, custom_root='request', attr_type=False).decode('utf-8')
 
+def _post_request(url: str, data: dict) -> dict | None:
+    """
+    Send a POST request to the specified URL with the given data.
+    Returns the response as a dictionary.
+    """
+    global REQUEST_TOKENS, HEADERS
+
+    if len(REQUEST_TOKENS) > 0:
+        HEADERS["__RequestVerificationToken"] = REQUEST_TOKENS.pop(0)
+
+    try:
+        response = requests.post(
+            url,
+            headers=HEADERS,
+            data=_dict_to_xml(data)
+        )
+        response.raise_for_status()
+
+        if "error" in response.text:
+            print("[!!] Error in authentication response:", response.text)
+            return None
+
+        if len(REQUEST_TOKENS) == 0 and response.headers.get('__RequestVerificationToken'):
+            if response.headers.get('__RequestVerificationTokenone', None):
+                REQUEST_TOKENS.append(response.headers.get('__RequestVerificationTokenone'))
+            if response.headers.get('__RequestVerificationTokentwo', None):
+                REQUEST_TOKENS.append(response.headers.get('__RequestVerificationTokentwo'))
+            REQUEST_TOKENS += response.headers.get('__RequestVerificationToken').split("#")
+
+        if response.headers.get('Set-Cookie'):
+            HEADERS["Cookie"] = response.headers.get('Set-Cookie').split(';')[0]
+
+        return _xml_to_dict(response.text)
+    except requests.RequestException as e:
+        print(f"Error in POST request: {e}")
+        return None
+
 # --- API Interaction Functions ---
 
-def refresh_token() -> tuple[str, str] | None:
+def refresh_token() -> bool:
     """
     Fetches a new token and updates the Cookie and __RequestVerificationToken headers.
     Returns (cookie, request_verification_token) on success, None on failure.
@@ -78,17 +129,16 @@ def refresh_token() -> tuple[str, str] | None:
         print("[+] Getting token...")
         response_raw = requests.get(url)
         response_raw.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-        print("[!] Token received successfully")
 
-        cookie = response_raw.headers.get('Set-Cookie', '').split(';')[0]
-        # Extract the token from the XML response
         response_data = _xml_to_dict(response_raw.text) # _xml_to_dict now returns the inner object
-        token = response_data.get('token', '')[32:]
         
-        return cookie, token
+        REQUEST_TOKENS.append(response_data.get('token', '')[32:])
+        HEADERS["Cookie"] = response_raw.headers.get('Set-Cookie', '').split(';')[0]
+
+        return True
     except requests.RequestException as e:
         print(f"Error requesting token: {e}")
-        return None
+        return False
 
 def send_challenge() -> tuple[str, str, str, str, str] | None:
     """
@@ -105,24 +155,8 @@ def send_challenge() -> tuple[str, str, str, str, str] | None:
     }
     
     try:
-        print("[+] Sending challenge")
-        response_raw = requests.post(
-            url,
-            headers=HEADERS,
-            data=_dict_to_xml(first_post_data)
-        )
-        response_raw.raise_for_status()
-
-        if "error" in response_raw.text:
-            print("[!!] Error in challenge response:", response_raw.text)
-            return None
-
-        response_data = _xml_to_dict(response_raw.text) # _xml_to_dict now returns the inner object
-        
-        # Update the global HEADERS with the new request verification token
-        HEADERS["__RequestVerificationToken"] = response_raw.headers.get('__RequestVerificationToken', '')
-        
-        print("[!] Challenge received successfully with salt, iterations, and server nonce")
+        print("[+] Sending challenge...")
+        response_data = _post_request(url, first_post_data)
         return (response_data.get("salt", ""), 
                 response_data.get("iterations", ""), 
                 first_nonce, 
@@ -140,28 +174,8 @@ def send_response(response_post_data: dict) -> tuple[str, str, str, str] | None:
     url = f"http://{ROUTER_IP}/api/user/authentication_login"
 
     try:
-        print("[+] Sending response")
-        response_raw = requests.post(
-            url,
-            headers=HEADERS,
-            data=_dict_to_xml(response_post_data)
-        )
-        response_raw.raise_for_status()
-
-        if "error" in response_raw.text:
-            print("[!!] Error in authentication response:", response_raw.text)
-            return None
-
-        response_data = _xml_to_dict(response_raw.text) # _xml_to_dict now returns the inner object
-
-        # Update global HEADERS with new tokens and cookie
-        global REQUEST_TOKENS # Declare global to modify the list
-        REQUEST_TOKENS = response_raw.headers.get('__RequestVerificationToken', '').split('#')
-        HEADERS["Cookie"] = response_raw.headers.get('Set-Cookie', '').split(';')[0]
-        HEADERS["__RequestVerificationTokenone"] = response_raw.headers.get('__RequestVerificationTokenone', '')
-        HEADERS["__RequestVerificationTokentwo"] = response_raw.headers.get('__RequestVerificationTokentwo', '')
-
-        print("[!] Response received successfully with rsan, rsae, serversignature and rsapubkeysignature")
+        print("[+] Sending response...")
+        response_data = _post_request(url, response_post_data)
         return (response_data.get("rsan", ""), 
                 response_data.get("rsae", ""), 
                 response_data.get("serversignature", ""), 
@@ -214,15 +228,13 @@ def login():
     print(f"""Huawei Router API Controller\nReaching router at {ROUTER_IP}\n""")
 
     # Step 1: Refresh Token
-    token_data = refresh_token()
-    if token_data is None:
-        exit(1)
-    HEADERS["Cookie"], HEADERS["__RequestVerificationToken"] = token_data
+    if not refresh_token():
+        return False
 
     # Step 2: Send Challenge
     challenge_data = send_challenge()
-    if challenge_data is None:
-        exit(1)
+    if not challenge_data:
+        return False
     salt, iterations, first_nonce, final_nonce, mode_selected = challenge_data
 
     # Step 3: Calculate Salted Password
@@ -238,7 +250,7 @@ def login():
         )
     except ValueError as e:
         print(f"[-] Error in password salting: {e}")
-        exit(1)
+        return False
 
     # Step 4: Generate Client Proof and Send Response
     client_proof_hex = calculate_client_proof(b_salted_password, auth_msg)
@@ -249,9 +261,9 @@ def login():
 
     response_data = send_response(final_post_data)
     if response_data is None:
-        exit(1)
+        return False
     rsan, rsae, server_signature_received, rsa_pubkey_signature_received = response_data
-    
+
     # Step 5: Verify Server Proof and Public Key Signature
     server_proof_calculated = calculate_server_proof(b_salted_password, auth_msg)
 
@@ -266,13 +278,15 @@ def login():
         if rsa_pubkey_signature_received == public_key_signature_calculated:
             ENCPUBKEY_E = rsae
             ENCPUBKEY_N = rsan
-            print("[!] Authentication successful!")
+            print("[+] Authentication successful!")
         else:
             print("[!!] RSA Public Key Signature mismatch. Authentication failed.")
-            exit(1)
+            return False
     else:
         print("[!!] Server Proof mismatch. Authentication failed.")
-        exit(1)
+        return False
+
+    return True
 
 def add_port_forwarding_rule(
     rule_name: str,
@@ -281,8 +295,8 @@ def add_port_forwarding_rule(
     protocol: str,
     internal_ip: str,
     status: bool,
-    external_port_range: int | None,
-    internal_port_range: int | None
+    external_port_range: int | None = None,
+    internal_port_range: int | None = None
 ) -> bool:
     
     url = f"http://{ROUTER_IP}/api/security/virtual-servers"
@@ -295,10 +309,22 @@ def add_port_forwarding_rule(
         existing_rules.raise_for_status()
         existing_rules_data = _xml_to_dict(existing_rules.text)
 
-        for server in existing_rules_data["Servers"]:
-            if (int(server["Server"]["VirtualServerLanPort"]) <= internal_port <= int(server["Server"]["VirtualServerLanEndPort"])) or (int(server["Server"]["VirtualServerWanPort"]) <= external_port <= int(server["Server"]["VirtualServerWanEndPort"])):
-                print(f"[!] Ports already in use. Please choose different ports.")
-                return False
+        if existing_rules_data.get("Servers") is not None:
+            if isinstance(existing_rules_data["Servers"],list):
+                for server in existing_rules_data["Servers"]:
+                    print(server)
+                    if (int(server["VirtualServerLanPort"]) <= internal_port <= int(server["VirtualServerLanEndPort"])) or (int(["VirtualServerWanPort"]) <= external_port <= int(server["VirtualServerWanEndPort"])):
+                        print(f"[!] Ports already in use. Please choose different ports.")
+                        return False
+            elif isinstance(existing_rules_data["Servers"], dict):
+                server = existing_rules_data["Servers"]["Server"]
+                if (int(server["VirtualServerLanPort"]) <= internal_port <= int(server["VirtualServerLanEndPort"])) or (int(server["VirtualServerWanPort"]) <= external_port <= int(server["VirtualServerWanEndPort"])):
+                    print(f"[!] Ports already in use. Please choose different ports.")
+                    return False  
+                existing_rules_data["Servers"] = []
+                existing_rules_data["Servers"].append({"Server": server})
+        else:
+            existing_rules_data["Servers"] = []
 
         existing_rules_data["Servers"].append({
             "Server":{
@@ -314,18 +340,15 @@ def add_port_forwarding_rule(
             }
         })
 
-        response_raw = requests.post(
-            url,
-            headers=HEADERS,
-            data=_dict_to_xml(existing_rules_data)
-        )
-        response_raw.raise_for_status()
 
-        if "OK" not in response_raw.text:
-            print("[!!] Error adding port forwarding rule:", response_raw.text)
-            return False
+        del existing_rules_data["virtualserverexcludeports"]
+        payload = _dict_to_xml(existing_rules_data).replace("<item>", "").replace("</item>", "")
+
+        payload = """<?xml version="1.0" encoding="UTF-8"?><request><Servers><Server><VirtualServerIPName>wireguard</VirtualServerIPName><VirtualServerStatus>1</VirtualServerStatus><VirtualServerRemoteIP></VirtualServerRemoteIP><VirtualServerWanPort>51820</VirtualServerWanPort><VirtualServerWanEndPort>51820</VirtualServerWanEndPort><VirtualServerLanPort>51820</VirtualServerLanPort><VirtualServerLanEndPort>51820</VirtualServerLanEndPort><VirtualServerIPAddress>192.168.1.2</VirtualServerIPAddress><VirtualServerProtocol>17</VirtualServerProtocol></Server></Servers></request>"""
+
+        response_data = _post_request(url, payload)
         
-        print("[!] Port forwarding rule added successfully.")
+        print("[+] Port forwarding rule added successfully.")
     except requests.RequestException as e:
         print(f"[!!] Error adding port forwarding rule: {e}")
         return False
@@ -333,13 +356,17 @@ def add_port_forwarding_rule(
     return True
 
 if __name__ == "__main__":
-    login()
+    retries = 0
+    while (not login() and retries < 3):
+        print("[!!] Login failed. Retrying...")
+        retries += 1
 
     add_port_forwarding_rule(
         rule_name="wireguard",
-        external_port=51820,
-        internal_port=51820,
+        external_port=51821,
+        internal_port=51821,
         protocol=TCP_UDP,
         internal_ip="192.168.1.2",
         status=True,
     )
+
