@@ -25,8 +25,8 @@ import xml.etree.ElementTree as ET
 
 # --- Configuration Constants ---
 ROUTER_IP = ""
-USERNAME = ""  # Change this to your router's username
-PASSWORD = ""   # Change this to your router's password
+USERNAME = ""  # Change this to your router's username or use credentials.json file
+PASSWORD = ""   # Change this to your router's password  or use credentials.json file
 RSA_LOGIN_MODE = 1
 
 # ---- Protocol Constants --- DON'T CHANGE THESE UNLESS YOU KNOW WHAT YOU'RE DOING!
