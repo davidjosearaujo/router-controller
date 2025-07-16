@@ -361,7 +361,7 @@ def add_port_forwarding_rule(
     status: bool,
     external_port_range: int | None = None,
     internal_port_range: int | None = None
-) -> bool:
+) -> bool | dict:
     
     url = f"http://{ROUTER_IP}/api/security/virtual-servers"
 
@@ -407,13 +407,12 @@ def add_port_forwarding_rule(
             return False
         
         print("\n[+] Port forwarding rule added successfully.")
-        list_port_forwarding_rules()
-        return True
+        return list_port_forwarding_rules()
     except requests.RequestException as e:
         print(f"[!!] Error adding port forwarding rule: {e}")
         return False
 
-def remove_port_forwarding_rule(rule_name: str | None = None) -> bool:
+def remove_port_forwarding_rule(rule_name: str | None = None) -> dict | bool:
     url = f"http://{ROUTER_IP}/api/security/virtual-servers"
     global HEADERS
 
@@ -440,8 +439,7 @@ def remove_port_forwarding_rule(rule_name: str | None = None) -> bool:
             return False
         
         print("\n[+] Port forwarding rule(s) erased successfully.")
-        list_port_forwarding_rules()
-        return True
+        return list_port_forwarding_rules()
     except requests.RequestException as e:
         print(f"[!!] Error removing port forwarding rule: {e}")
         return False
@@ -457,13 +455,15 @@ if __name__ == "__main__":
         print("[!!] Login failed. Retrying in 3 seconds...")
         time.sleep(3)
 
-    remove_port_forwarding_rule("wireguard")
-
-    add_port_forwarding_rule(
-        rule_name="wireguard",
-        external_port=51820,
-        internal_port=51820,
-        protocol=UDP,
-        internal_ip="192.168.1.2",
-        status=True,
-    )
+    # Check if rule for wireguard already exists
+    existing_rules = list_port_forwarding_rules()["Servers"]
+    if not existing_rules or len(list(filter(lambda rule: rule["Server"]["VirtualServerIPName"] == "wireguard", existing_rules))) == 0:
+        print(add_port_forwarding_rule(
+            rule_name="wireguard",
+            external_port=51820,
+            internal_port=51820,
+            protocol=UDP,
+            internal_ip="192.168.1.2",
+            status=True,
+        ))
+    
