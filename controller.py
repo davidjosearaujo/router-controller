@@ -77,7 +77,7 @@ def _xml_to_dict(xml_string: str) -> dict:
 
 def _dict_to_xml(data: dict) -> str:
     """Convert nested dictionary to an XML string."""
-    return dicttoxml.dicttoxml(data, custom_root='request', attr_type=False).decode('utf-8')
+    return dicttoxml.dicttoxml(data, custom_root='request', attr_type=False).decode('utf-8').replace("<item>", "").replace("</item>", "")
 
 def _post_request(url: str, data: dict) -> dict | None:
     """
@@ -86,8 +86,7 @@ def _post_request(url: str, data: dict) -> dict | None:
     """
     global REQUEST_TOKENS, HEADERS
 
-    if len(REQUEST_TOKENS) > 0:
-        HEADERS["__RequestVerificationToken"] = REQUEST_TOKENS.pop(0)
+    HEADERS["__RequestVerificationToken"] = REQUEST_TOKENS.pop(0)
 
     try:
         response = requests.post(
@@ -144,7 +143,7 @@ def refresh_token() -> bool:
         response_raw.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
 
         response_data = _xml_to_dict(response_raw.text) # _xml_to_dict now returns the inner object
-        
+
         REQUEST_TOKENS.append(response_data.get('token', '')[32:])
         HEADERS["Cookie"] = response_raw.headers.get('Set-Cookie', '').split(';')[0]
 
@@ -315,6 +314,7 @@ def add_port_forwarding_rule(
     
     url = f"http://{ROUTER_IP}/api/security/virtual-servers"
 
+    global HEADERS
     try:
         existing_rules = requests.get(
             url,
@@ -324,43 +324,43 @@ def add_port_forwarding_rule(
         existing_rules_data = _xml_to_dict(existing_rules.text)
 
         if existing_rules_data.get("Servers") is not None:
-            if isinstance(existing_rules_data["Servers"],list):
+            if isinstance(existing_rules_data["Servers"]["Server"],list):
+                existing_rules_data["Servers"] = [{"Server": server} for server in existing_rules_data["Servers"]["Server"]]
                 for server in existing_rules_data["Servers"]:
-                    print(server)
                     if (int(server["VirtualServerLanPort"]) <= internal_port <= int(server["VirtualServerLanEndPort"])) or (int(["VirtualServerWanPort"]) <= external_port <= int(server["VirtualServerWanEndPort"])):
                         print(f"[!] Ports already in use. Please choose different ports.")
                         return False
-            elif isinstance(existing_rules_data["Servers"], dict):
+            elif isinstance(existing_rules_data["Servers"]["Server"], dict):
                 server = existing_rules_data["Servers"]["Server"]
                 if (int(server["VirtualServerLanPort"]) <= internal_port <= int(server["VirtualServerLanEndPort"])) or (int(server["VirtualServerWanPort"]) <= external_port <= int(server["VirtualServerWanEndPort"])):
                     print(f"[!] Ports already in use. Please choose different ports.")
                     return False  
                 existing_rules_data["Servers"] = []
-                existing_rules_data["Servers"].append({"Server": server})
+                existing_rules_data["Servers"].append({"Server":server})
         else:
             existing_rules_data["Servers"] = []
 
-        existing_rules_data["Servers"].append({
-            "Server":{
-                "VirtualServerIPName": rule_name,
-                "VirtualServerStatus": int(status),
-                "VirtualServerRemoteIP": "",
-                "VirtualServerWanPort": str(external_port),
-                "VirtualServerWanEndPort": str(external_port_range) if external_port_range else str(external_port),
-                "VirtualServerLanPort": str(internal_port),
-                "VirtualServerLanEndPort": str(internal_port_range) if internal_port_range else str(internal_port),
-                "VirtualServerIPAddress": internal_ip,
-                "VirtualServerProtocol": protocol,
-            }
-        })
-
+        existing_rules_data["Servers"].append({"Server":{
+            "VirtualServerIPName": rule_name,
+            "VirtualServerStatus": int(status),
+            "VirtualServerRemoteIP": "",
+            "VirtualServerWanPort": str(external_port),
+            "VirtualServerWanEndPort": str(external_port_range) if external_port_range else str(external_port),
+            "VirtualServerLanPort": str(internal_port),
+            "VirtualServerLanEndPort": str(internal_port_range) if internal_port_range else str(internal_port),
+            "VirtualServerIPAddress": internal_ip,
+            "VirtualServerProtocol": protocol,
+        }})
 
         del existing_rules_data["virtualserverexcludeports"]
-        payload = _dict_to_xml(existing_rules_data).replace("<item>", "").replace("</item>", "")
-
-        response_data = _post_request(url, payload)
+        
+        response_data = _post_request(url, existing_rules_data)
+        if response_data is None:
+            print("[!!] Failed to add port forwarding rule.")
+            return False
         
         print("[+] Port forwarding rule added successfully.")
+        return True
     except requests.RequestException as e:
         print(f"[!!] Error adding port forwarding rule: {e}")
         return False
@@ -382,4 +382,3 @@ if __name__ == "__main__":
         internal_ip="192.168.1.2",
         status=True,
     )
-
