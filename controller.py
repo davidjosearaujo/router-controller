@@ -18,6 +18,7 @@ import os
 import json
 import hmac
 import hashlib
+import time
 import requests
 import dicttoxml
 import xml.etree.ElementTree as ET
@@ -169,6 +170,9 @@ def send_challenge() -> tuple[str, str, str, str, str] | None:
     try:
         print("[+] Sending challenge...")
         response_data = _post_request(url, first_post_data)
+        if response_data is None:
+            print("[!!] Failed to get challenge response.")
+            return None
         return (response_data.get("salt", ""), 
                 response_data.get("iterations", ""), 
                 first_nonce, 
@@ -301,6 +305,53 @@ def login():
 
     return True
 
+# --- Port Forwarding Functions ---
+
+
+
+def list_port_forwarding_rules() -> list[dict] | bool:
+    """
+    Retrieves and lists all existing port forwarding rules.
+
+    Returns:
+        A list of dictionaries, where each dictionary represents a port forwarding rule.
+        Returns an empty list if no rules are found or an error occurs.
+    """
+    def _print_rule(rule: dict) -> None:
+        print(f"  - Name: {rule['VirtualServerIPName']}, Status: {'Enabled' if rule['VirtualServerStatus'] else 'Disabled'}, "
+          f"External Port(s): {rule['VirtualServerWanPort']}{'-' + rule['VirtualServerWanEndPort'] if rule['VirtualServerWanEndPort'] != rule['VirtualServerWanPort'] else ''}, "
+          f"Internal Port(s): {rule['VirtualServerLanPort']}{'-' + rule['VirtualServerLanEndPort'] if rule['VirtualServerLanEndPort'] != rule['VirtualServerLanPort'] else ''}, "
+          f"Internal IP: {rule['VirtualServerIPAddress']}, Protocol: { 'TCP/UDP' if rule['VirtualServerProtocol'] == TCP_UDP else 'TCP' if rule['VirtualServerProtocol'] == TCP else 'UDP' }")
+    
+    url = f"http://{ROUTER_IP}/api/security/virtual-servers"
+    
+    try:
+        existing_rules = requests.get(url, headers=HEADERS)
+        existing_rules.raise_for_status()
+        existing_rules_data = _xml_to_dict(existing_rules.text)
+
+        if existing_rules_data.get("Servers") is not None:
+            if isinstance(existing_rules_data["Servers"]["Server"], dict):
+                existing_rules_data["Servers"] = [{"Server": existing_rules_data["Servers"]["Server"]}]
+            elif isinstance(existing_rules_data["Servers"]["Server"], list):
+                existing_rules_data["Servers"] = [{"Server": server} for server in existing_rules_data["Servers"]["Server"]]
+
+            print("\n[+] Port Forwarding Rules:")
+            for rule in existing_rules_data["Servers"]:
+                rule = rule["Server"]
+                _print_rule(rule)
+        else:
+            print("\n[+] No port forwarding rules found.")    
+        
+        return existing_rules_data
+
+    except requests.RequestException as e:
+        print(f"[!!] Error listing port forwarding rules: {e}")
+        return False
+    except Exception as e:
+        print(f"[!!] An unexpected error occurred while listing rules: {e}")
+        return False
+
 def add_port_forwarding_rule(
     rule_name: str,
     external_port: int,
@@ -316,29 +367,25 @@ def add_port_forwarding_rule(
 
     global HEADERS
     try:
-        existing_rules = requests.get(
-            url,
-            headers=HEADERS
-        )
-        existing_rules.raise_for_status()
-        existing_rules_data = _xml_to_dict(existing_rules.text)
+        existing_rules_data = list_port_forwarding_rules()
 
-        if existing_rules_data.get("Servers") is not None:
-            if isinstance(existing_rules_data["Servers"]["Server"],list):
-                existing_rules_data["Servers"] = [{"Server": server} for server in existing_rules_data["Servers"]["Server"]]
-                for server in existing_rules_data["Servers"]:
-                    if (int(server["VirtualServerLanPort"]) <= internal_port <= int(server["VirtualServerLanEndPort"])) or (int(["VirtualServerWanPort"]) <= external_port <= int(server["VirtualServerWanEndPort"])):
-                        print(f"[!] Ports already in use. Please choose different ports.")
-                        return False
-            elif isinstance(existing_rules_data["Servers"]["Server"], dict):
-                server = existing_rules_data["Servers"]["Server"]
-                if (int(server["VirtualServerLanPort"]) <= internal_port <= int(server["VirtualServerLanEndPort"])) or (int(server["VirtualServerWanPort"]) <= external_port <= int(server["VirtualServerWanEndPort"])):
-                    print(f"[!] Ports already in use. Please choose different ports.")
-                    return False  
-                existing_rules_data["Servers"] = []
-                existing_rules_data["Servers"].append({"Server":server})
-        else:
+        if not existing_rules_data:
+            print("[!!] Could not retrieve existing rules to add a new one.")
+            return False
+    
+        if existing_rules_data.get("Servers") is None:
             existing_rules_data["Servers"] = []
+        else:
+            if (str(external_port) in str(existing_rules_data["virtualserverexcludeports"])) or 50000 <= external_port <= 50020:
+                print(f"\n[!] Port {external_port} is reserved and cannot be used for port forwarding.")
+                return False
+
+            for server_item in existing_rules_data["Servers"]:
+                server = server_item["Server"]
+                if (int(server["VirtualServerLanPort"]) <= internal_port <= int(server["VirtualServerLanEndPort"]) and internal_ip == server["VirtualServerIPAddress"]) or \
+                (int(server["VirtualServerWanPort"]) <= external_port <= int(server["VirtualServerWanEndPort"])):
+                    print(f"\n[!] Ports already in use. Please choose different ports.")
+                    return False
 
         existing_rules_data["Servers"].append({"Server":{
             "VirtualServerIPName": rule_name,
@@ -359,26 +406,64 @@ def add_port_forwarding_rule(
             print("[!!] Failed to add port forwarding rule.")
             return False
         
-        print("[+] Port forwarding rule added successfully.")
+        print("\n[+] Port forwarding rule added successfully.")
+        list_port_forwarding_rules()
         return True
     except requests.RequestException as e:
         print(f"[!!] Error adding port forwarding rule: {e}")
         return False
 
-    return True
+def remove_port_forwarding_rule(rule_name: str | None = None) -> bool:
+    url = f"http://{ROUTER_IP}/api/security/virtual-servers"
+    global HEADERS
+
+    try:
+        existing_rules_data = list_port_forwarding_rules()
+
+        if not existing_rules_data:
+            print("[!!] Could not retrieve existing rules to perform removal.")
+            return False
+
+        if rule_name is None:
+            print("\n[+] Attempting to erase all port forwarding rules.")
+            existing_rules_data["Servers"] = None
+        else:
+            existing_rules_data["Servers"] = list(filter(lambda server: server["Server"]["VirtualServerIPName"] != rule_name, existing_rules_data["Servers"]))
+
+            if len(existing_rules_data["Servers"]) == 0:
+               existing_rules_data["Servers"] = None 
+
+        del existing_rules_data["virtualserverexcludeports"]    
+        response_data = _post_request(url, existing_rules_data)
+        if response_data is None:
+            print("[!!] Failed to erase all port forwarding rules.")
+            return False
+        
+        print("\n[+] Port forwarding rule(s) erased successfully.")
+        list_port_forwarding_rules()
+        return True
+    except requests.RequestException as e:
+        print(f"[!!] Error removing port forwarding rule: {e}")
+        return False
+    except Exception as e:
+        print(f"[!!] An unexpected error occurred while removing rule: {e}")
+        return False
 
 if __name__ == "__main__":
-    retries = 0
-    while (not login() and retries < 3):
-        print("[!!] Login failed. Retrying...")
-        retries += 1
+    for retries in range(3):
+        if login():
+            print("[+] Login successful!")
+            break
+        print("[!!] Login failed. Retrying in 3 seconds...")
+        time.sleep(3)
 
-    # Still not working. It is authenticated but submitting a new rules cleans all the rules.
+    remove_port_forwarding_rule("wireguard")
+
     add_port_forwarding_rule(
         rule_name="wireguard",
-        external_port=51821,
-        internal_port=51821,
-        protocol=TCP_UDP,
+        external_port=51820,
+        internal_port=51820,
+        protocol=UDP,
         internal_ip="192.168.1.2",
         status=True,
     )
